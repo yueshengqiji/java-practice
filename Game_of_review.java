@@ -5,8 +5,8 @@ enum Npcname {
     ALICE(new Alice()),
     YEFU(new Yefu()),
     DEATH(new Death()),
-    MEA(new mea()),
-    SHINKU(new shinku());
+    MEA(new Mea()),
+    SHINKU(new Shinku());
 
     private Character character;
     Npcname(Character character) { this.character = character; }
@@ -36,11 +36,12 @@ abstract class Character{
     public int getDefense(){return defense;}
     //造成的伤害独立计算
     public void takeDamage(int damage) {
-        hp -= damage;
-        if (hp < 0) hp = 0;
+            hp -= damage;
+            if (hp > maxHp) hp = maxHp;
+            if (hp < 0) hp = 0;
 
     }
-    //布尔判断血量是否是大于零
+//布尔判断血量是否是大于零
     public boolean isAlive() { return hp > 0; }
 
     public int getSkillDamage(String skill) {
@@ -71,17 +72,17 @@ class Yefu extends Character {
 class Death extends Character {
     public Death() { super("Death", 10, 1000, 2000,0); }
 }
-class mea extends Character {
-    public mea(){super("mea",100,100,100,100);}
+class Mea extends Character {
+    public Mea(){super("Mea",100,100,100,100);}
 }
-class shinku extends Character {
-    public shinku(){super("shinku",-9999,-9999,9999,9999);}
+class Shinku extends Character {
+    public Shinku(){super("Shinku",-9999,-9999,9999,9999);}
 }
 public class Game_of_review{
     public static void main(String[]args){
         //先使用重构来构建一个map
         Scanner sc=new Scanner(System.in);
-        Map<String, Character> map=new HashMap<>();
+        Map<String,Character> map=new HashMap<>();
         Random rand=new Random();
         //通过Arrays将枚举的角色都列出来
         System.out.println("请选择角色：" + Arrays.toString(Npcname.values()));
@@ -97,33 +98,56 @@ public class Game_of_review{
         while (player.isAlive() && enemy.isAlive()) {
             // 玩家选择技能
             System.out.println("我的回合，豇豆！");
-            String playerSkill=sc.nextLine();
+            String playerSkill = sc.nextLine();
+            while (true) {
+                if (playerSkill.equals("magic") || playerSkill.equals("strike") || playerSkill.equals("defense")) {
+                    break;
+                } else {
+                    System.out.println("你的技能里没有这个，请重新选择");
+                    playerSkill = sc.nextLine();
+                }
+            }
+
+            // 随机敌人出招
+            String[] skill = {"magic", "defense", "strike"};
+            String enemySkill = skill[rand.nextInt(skill.length)];
+            if (playerSkill.equals("defense") && enemySkill.equals("defense")) {
+                System.out.println("你摆出了防御姿态，敌人也摆出了防御姿态，无事发生。");
+                continue;
+            }
+            if (playerSkill.equals("defense")) {
+                System.out.println("你摆出了防御姿态，躲过了敌人的攻击！");
+                int enemyRawDamage = enemy.getSkillDamage(enemySkill);
+                int reducedDamage = Math.max(0, enemyRawDamage - player.getDefense());
+                player.takeDamage(reducedDamage);
+                System.out.println("敌人使用了 " + enemySkill + "，但只造成了 " + reducedDamage + " 点伤害！");
+                System.out.println("你的HP：" + player.getHp() + " | 敌人HP：" + enemy.getHp());
+                continue;
+            }
+            if (enemySkill.equals("defense")) {
+                System.out.println("敌人摆出了防御姿态！");
+                int playerRawDamage = player.getSkillDamage(playerSkill);
+                boolean isPlayerMagic = playerSkill.equals("magic");
+                int playerActualDamage;
+                if (isPlayerMagic) {
+                    playerActualDamage = playerRawDamage; // 魔法无视防御
+                } else {
+                    playerActualDamage = Math.max(1, playerRawDamage - enemy.getDefense()); // 物理被减免
+                }
+                enemy.takeDamage(playerActualDamage);
+                System.out.println("你使用了 " + playerSkill + "，但只造成了 " + playerActualDamage + " 点伤害！");
+                System.out.println("你的HP：" + player.getHp() + " | 敌人HP：" + enemy.getHp());
+                continue;
+            }
+            // 显示战况
             int playerRawDamage = player.getSkillDamage(playerSkill);
-            boolean isPlayerMagic = playerSkill.equals("magic"); // 魔法攻击为true,真实伤害的意思就是这个游戏最真实的伤害
+            boolean isPlayerMagic = playerSkill.equals("magic");
             int playerActualDamage = enemy.calculateActualDamage(playerRawDamage, isPlayerMagic);
             enemy.takeDamage(playerActualDamage);
-            //随机我们可爱敌方的出招
-            String []skill={"magic","defanse","strike"};
-            String enemySkill=skill[rand.nextInt(skill.length)];
             int enemyRawDamage = enemy.getSkillDamage(enemySkill);
             boolean isEnemyMagic = enemySkill.equals("magic");
             int enemyActualDamage = player.calculateActualDamage(enemyRawDamage, isEnemyMagic);
             player.takeDamage(enemyActualDamage);
-            if (playerSkill.equals("defense")) {
-                System.out.println("你摆出了防御姿态，躲过了敌人的攻击！");
-                // 玩家本回合不攻击，但敌人仍会攻击，可以减免部分伤害
-                enemyActualDamage = Math.max(0, enemy.getSkillDamage(enemySkill) - player.getDefense());
-                player.takeDamage(enemyActualDamage);
-                continue;
-            }
-            if (enemySkill.equals("defense")) {
-                System.out.println("敌人摆出了防御姿态，妄想躲过了你的攻击！");
-                // 玩家本回合不攻击，但敌人仍会攻击，可以减免部分伤害
-                enemyActualDamage = Math.max(0, enemy.getSkillDamage(enemySkill) - player.getDefense());
-                player.takeDamage(enemyActualDamage);
-                continue;
-            }
-            // 显示战况
             System.out.println("你使用了 " + playerSkill + "，造成 " + playerActualDamage + " 点伤害!!");
             System.out.println("敌人使用了 " + enemySkill + "，造成 " + enemyActualDamage + " 点伤害!!");
             System.out.println("你的HP：" + player.getHp() + " | 敌人HP：" + enemy.getHp());
@@ -134,5 +158,6 @@ public class Game_of_review{
         } else {
             System.out.println("YOU ARE DEAD...");
         }
+
     }
 }
